@@ -1,0 +1,217 @@
+
+<style>
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 1.5rem; }
+  .grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 1.5rem; }
+  .card { background: var(--color-background-secondary); border-radius: var(--border-radius-md); padding: 1rem; }
+  .card-label { font-size: 12px; color: var(--color-text-secondary); margin: 0 0 4px; }
+  .card-value { font-size: 22px; font-weight: 500; margin: 0; color: var(--color-text-primary); }
+  .card-unit { font-size: 12px; color: var(--color-text-secondary); }
+  .optimal { border: 1.5px solid #1D9E75; }
+  .optimal .card-value { color: #1D9E75; }
+  .slider-row { display: flex; align-items: center; gap: 12px; margin-bottom: 1rem; }
+  .slider-label { font-size: 13px; color: var(--color-text-secondary); width: 130px; flex-shrink: 0; }
+  .slider-val { font-size: 13px; font-weight: 500; min-width: 52px; text-align: right; color: var(--color-text-primary); }
+  .section-title { font-size: 13px; font-weight: 500; color: var(--color-text-secondary); margin: 0 0 0.75rem; letter-spacing: 0.05em; text-transform: uppercase; }
+</style>
+
+<div style="padding: 1rem 0;">
+  <div class="grid2">
+    <div>
+      <p class="section-title">Parameters</p>
+      <div class="slider-row">
+        <span class="slider-label">Initial pressure</span>
+        <input type="range" min="2" max="10" step="0.5" value="6" id="pSlider" style="flex:1;">
+        <span class="slider-val"><span id="pVal">6.0</span> bar</span>
+      </div>
+      <div class="slider-row">
+        <span class="slider-label">Fill fraction</span>
+        <input type="range" min="10" max="70" step="1" value="33" id="fSlider" style="flex:1;">
+        <span class="slider-val"><span id="fVal">33</span>%</span>
+      </div>
+    </div>
+    <div>
+      <p class="section-title">Fixed values</p>
+      <div style="font-size: 13px; color: var(--color-text-secondary); line-height: 2;">
+        Bottle volume: <span style="color: var(--color-text-primary); font-weight:500;">2.0 L</span><br>
+        Nozzle diameter: <span style="color: var(--color-text-primary); font-weight:500;">21 mm</span><br>
+        Water density: <span style="color: var(--color-text-primary); font-weight:500;">1000 kg/m³</span><br>
+        γ (adiabatic): <span style="color: var(--color-text-primary); font-weight:500;">1.4</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid4">
+    <div class="card" id="cardImpulse">
+      <p class="card-label">Total impulse</p>
+      <p class="card-value" id="impulseVal">—</p>
+      <span class="card-unit">N·s</span>
+    </div>
+    <div class="card" id="cardThrust">
+      <p class="card-label">Peak thrust</p>
+      <p class="card-value" id="thrustVal">—</p>
+      <span class="card-unit">N</span>
+    </div>
+    <div class="card" id="cardBurn">
+      <p class="card-label">Burn time</p>
+      <p class="card-value" id="burnVal">—</p>
+      <span class="card-unit">s</span>
+    </div>
+    <div class="card" id="cardWater">
+      <p class="card-label">Water volume</p>
+      <p class="card-value" id="waterVal">—</p>
+      <span class="card-unit">mL</span>
+    </div>
+  </div>
+
+  <p class="section-title">Total impulse vs fill fraction (at selected pressure)</p>
+  <div style="position: relative; width: 100%; height: 240px; margin-bottom: 1.5rem;">
+    <canvas id="sweepChart"></canvas>
+  </div>
+
+  <p class="section-title">Thrust curve (at selected fill %)</p>
+  <div style="position: relative; width: 100%; height: 200px;">
+    <canvas id="thrustChart"></canvas>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+const V_bottle = 0.002;
+const rho = 1000;
+const gamma = 1.4;
+const d_nozzle = 0.021;
+const A_nozzle = Math.PI * (d_nozzle/2)**2;
+const P_atm = 101325;
+
+function simulate(P0_bar, fillFrac) {
+  const P0 = P0_bar * 1e5 + P_atm;
+  const V_water = V_bottle * fillFrac;
+  const V_air0 = V_bottle - V_water;
+  const dt = 0.0001;
+  let V_air = V_air0;
+  let impulse = 0;
+  let peakThrust = 0;
+  let time = 0;
+  const times = [], thrusts = [];
+
+  while (V_air < V_bottle && time < 10) {
+    const P = P0 * Math.pow(V_air0 / V_air, gamma);
+    const P_gauge = P - P_atm;
+    if (P_gauge <= 0) break;
+    const v_exit = Math.sqrt(2 * P_gauge / rho);
+    const dm_dt = rho * A_nozzle * v_exit;
+    const thrust = dm_dt * v_exit + A_nozzle * P_gauge;
+    const dV = A_nozzle * v_exit * dt;
+    V_air += dV;
+    impulse += thrust * dt;
+    if (thrust > peakThrust) peakThrust = thrust;
+    if (time % 0.005 < dt) { times.push(+time.toFixed(4)); thrusts.push(+thrust.toFixed(2)); }
+    time += dt;
+  }
+  return { impulse: +impulse.toFixed(2), peakThrust: +peakThrust.toFixed(1), burnTime: +time.toFixed(3), times, thrusts };
+}
+
+function sweepFill(P0_bar) {
+  const fracs = [], impulses = [];
+  for (let f = 0.10; f <= 0.70; f += 0.01) {
+    const r = simulate(P0_bar, f);
+    fracs.push(+(f*100).toFixed(0));
+    impulses.push(r.impulse);
+  }
+  return { fracs, impulses };
+}
+
+let sweepChartObj, thrustChartObj;
+
+function initCharts() {
+  const ctx1 = document.getElementById('sweepChart').getContext('2d');
+  sweepChartObj = new Chart(ctx1, {
+    type: 'line',
+    data: { labels: [], datasets: [{
+      label: 'Total impulse',
+      data: [],
+      borderColor: '#1D9E75',
+      backgroundColor: 'rgba(29,158,117,0.08)',
+      fill: true,
+      pointRadius: 0,
+      tension: 0.3
+    }, {
+      label: 'Selected',
+      data: [],
+      borderColor: '#D85A30',
+      backgroundColor: '#D85A30',
+      pointRadius: 5,
+      pointStyle: 'circle',
+      showLine: false
+    }]},
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { title: { display: true, text: 'Fill fraction (%)', font: { size: 12 } }, ticks: { maxTicksLimit: 8 } },
+        y: { title: { display: true, text: 'Total impulse (N·s)', font: { size: 12 } } }
+      }
+    }
+  });
+
+  const ctx2 = document.getElementById('thrustChart').getContext('2d');
+  thrustChartObj = new Chart(ctx2, {
+    type: 'line',
+    data: { labels: [], datasets: [{
+      label: 'Thrust',
+      data: [],
+      borderColor: '#378ADD',
+      backgroundColor: 'rgba(55,138,221,0.08)',
+      fill: true,
+      pointRadius: 0,
+      tension: 0.1
+    }]},
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { title: { display: true, text: 'Time (s)', font: { size: 12 } }, ticks: { maxTicksLimit: 8 } },
+        y: { title: { display: true, text: 'Thrust (N)', font: { size: 12 } }, min: 0 }
+      }
+    }
+  });
+}
+
+function update() {
+  const P0 = parseFloat(document.getElementById('pSlider').value);
+  const fPct = parseInt(document.getElementById('fSlider').value);
+  const f = fPct / 100;
+
+  document.getElementById('pVal').textContent = P0.toFixed(1);
+  document.getElementById('fVal').textContent = fPct;
+
+  const res = simulate(P0, f);
+  document.getElementById('impulseVal').textContent = res.impulse.toFixed(1);
+  document.getElementById('thrustVal').textContent = res.peakThrust.toFixed(0);
+  document.getElementById('burnVal').textContent = res.burnTime.toFixed(2);
+  document.getElementById('waterVal').textContent = Math.round(f * 2000);
+
+  const sweep = sweepFill(P0);
+  const maxImpulse = Math.max(...sweep.impulses);
+  const optIdx = sweep.impulses.indexOf(maxImpulse);
+  const optFrac = sweep.fracs[optIdx];
+
+  sweepChartObj.data.labels = sweep.fracs;
+  sweepChartObj.data.datasets[0].data = sweep.impulses;
+  sweepChartObj.data.datasets[1].data = sweep.fracs.map((fr, i) => fr === fPct ? sweep.impulses[i] : null);
+  sweepChartObj.update('none');
+
+  thrustChartObj.data.labels = res.times;
+  thrustChartObj.data.datasets[0].data = res.thrusts;
+  thrustChartObj.update('none');
+
+  const optCard = document.getElementById('cardImpulse');
+  const isNearOpt = Math.abs(fPct - optFrac) <= 3;
+  optCard.className = isNearOpt ? 'card optimal' : 'card';
+}
+
+initCharts();
+document.getElementById('pSlider').addEventListener('input', update);
+document.getElementById('fSlider').addEventListener('input', update);
+update();
+</script>
