@@ -1,0 +1,293 @@
+
+<style>
+  .slider-row { display: flex; align-items: center; gap: 12px; margin-bottom: 0.9rem; }
+  .slider-label { font-size: 13px; color: var(--color-text-secondary); width: 120px; flex-shrink: 0; }
+  .slider-val { font-size: 13px; font-weight: 500; min-width: 52px; text-align: right; color: var(--color-text-primary); }
+  .grid4 { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 10px; margin-bottom: 1.5rem; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 1.5rem; }
+  .mcard { background: var(--color-background-secondary); border-radius: var(--border-radius-md); padding: 0.9rem; }
+  .mcard-label { font-size: 12px; color: var(--color-text-secondary); margin: 0 0 4px; }
+  .mcard-val { font-size: 21px; font-weight: 500; margin: 0; }
+  .mcard-unit { font-size: 12px; color: var(--color-text-secondary); }
+  .sec { font-size: 12px; font-weight: 500; color: var(--color-text-secondary); letter-spacing: 0.06em; text-transform: uppercase; margin: 0 0 0.75rem; }
+  .badge { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 4px; font-weight: 500; }
+  .badge-blue { background: #E6F1FB; color: #0C447C; }
+  .badge-coral { background: #FAECE7; color: #712B13; }
+  .winner { border: 1.5px solid #1D9E75; }
+  .winner .mcard-val { color: #1D9E75; }
+</style>
+
+<div style="padding: 1rem 0;">
+  <div class="grid2">
+    <div>
+      <p class="sec">Parameters</p>
+      <div class="slider-row">
+        <span class="slider-label">Nose length</span>
+        <input type="range" min="50" max="300" step="1" value="120" id="lenSlider" style="flex:1;">
+        <span class="slider-val"><span id="lenVal">120</span> mm</span>
+      </div>
+      <div class="slider-row">
+        <span class="slider-label">Base radius</span>
+        <input type="range" min="20" max="60" step="1" value="37" id="radSlider" style="flex:1;">
+        <span class="slider-val"><span id="radVal">37</span> mm</span>
+      </div>
+      <div class="slider-row">
+        <span class="slider-label">Velocity</span>
+        <input type="range" min="5" max="80" step="1" value="30" id="velSlider" style="flex:1;">
+        <span class="slider-val"><span id="velVal">30</span> m/s</span>
+      </div>
+    </div>
+    <div>
+      <p class="sec">Fixed values</p>
+      <div style="font-size: 13px; color: var(--color-text-secondary); line-height: 2.1;">
+        Bottle base diameter: <span style="color:var(--color-text-primary);font-weight:500;">~74 mm</span><br>
+        Air density: <span style="color:var(--color-text-primary);font-weight:500;">1.225 kg/m³</span><br>
+        Regime: <span style="color:var(--color-text-primary);font-weight:500;">subsonic</span><br>
+        Ogive type: <span style="color:var(--color-text-primary);font-weight:500;">tangent ogive</span>
+      </div>
+    </div>
+  </div>
+
+  <p class="sec">Profile comparison</p>
+  <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:1.5rem;">
+    <div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+        <span class="badge badge-blue">Ogive</span>
+      </div>
+      <canvas id="ogiveCanvas" height="130" style="width:100%;display:block;"></canvas>
+    </div>
+    <div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+        <span class="badge badge-coral">Conical</span>
+      </div>
+      <canvas id="conicalCanvas" height="130" style="width:100%;display:block;"></canvas>
+    </div>
+  </div>
+
+  <p class="sec">Comparison</p>
+  <div class="grid4">
+    <div class="mcard" id="cdOgive">
+      <p class="mcard-label">Cd — ogive</p>
+      <p class="mcard-val" id="cdOgiveVal">—</p>
+      <span class="mcard-unit">dimensionless</span>
+    </div>
+    <div class="mcard" id="cdConical">
+      <p class="mcard-label">Cd — conical</p>
+      <p class="mcard-val" id="cdConicalVal">—</p>
+      <span class="mcard-unit">dimensionless</span>
+    </div>
+    <div class="mcard" id="dragOgive">
+      <p class="mcard-label">Drag — ogive</p>
+      <p class="mcard-val" id="dragOgiveVal">—</p>
+      <span class="mcard-unit">N</span>
+    </div>
+    <div class="mcard" id="dragConical">
+      <p class="mcard-label">Drag — conical</p>
+      <p class="mcard-val" id="dragConicalVal">—</p>
+      <span class="mcard-unit">N</span>
+    </div>
+  </div>
+
+  <p class="sec">Cd vs fineness ratio (L/D) at selected velocity</p>
+  <div style="position:relative;width:100%;height:220px;margin-bottom:1.5rem;">
+    <canvas id="cdChart"></canvas>
+  </div>
+
+  <div style="display:flex;gap:16px;margin-bottom:1.5rem;font-size:12px;color:var(--color-text-secondary);">
+    <span style="display:flex;align-items:center;gap:5px;"><span style="width:10px;height:10px;border-radius:2px;background:#378ADD;"></span>Ogive</span>
+    <span style="display:flex;align-items:center;gap:5px;"><span style="width:10px;height:10px;border-radius:2px;background:#D85A30;"></span>Conical</span>
+    <span style="display:flex;align-items:center;gap:5px;"><span style="width:10px;height:3px;background:#888780;"></span>Current L/D</span>
+  </div>
+
+  <p class="sec">Drag vs velocity (at selected length)</p>
+  <div style="position:relative;width:100%;height:200px;">
+    <canvas id="velChart"></canvas>
+  </div>
+  <div style="display:flex;gap:16px;margin-top:8px;font-size:12px;color:var(--color-text-secondary);">
+    <span style="display:flex;align-items:center;gap:5px;"><span style="width:10px;height:10px;border-radius:2px;background:#378ADD;"></span>Ogive</span>
+    <span style="display:flex;align-items:center;gap:5px;"><span style="width:10px;height:10px;border-radius:2px;background:#D85A30;"></span>Conical</span>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+const rho = 1.225;
+
+function fineness(L, R) { return L / (2 * R); }
+
+function cdOgive(fr) {
+  return 0.5 * (1 / (1 + Math.pow(2 * fr, 2))) + 0.02;
+}
+
+function cdConical(fr) {
+  const halfAngle = Math.atan(1 / (2 * fr));
+  return 2 * Math.pow(Math.sin(halfAngle), 2) + 0.035;
+}
+
+function drag(cd, R, v) {
+  const A = Math.PI * R * R;
+  return 0.5 * rho * v * v * A * cd;
+}
+
+function drawProfile(canvasId, type, L_mm, R_mm) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.offsetWidth || 300;
+  canvas.width = W;
+  canvas.height = 130;
+  ctx.clearRect(0, 0, W, 130);
+
+  const pad = 20;
+  const drawH = 130 - pad * 2;
+  const drawW = W - pad * 2;
+  const scale = Math.min(drawW / L_mm, drawH / (2 * R_mm));
+  const lPx = L_mm * scale;
+  const rPx = R_mm * scale;
+  const midY = 65;
+  const startX = pad + (drawW - lPx) / 2;
+
+  const isDark = matchMedia('(prefers-color-scheme: dark)').matches;
+  const fillCol = type === 'ogive' ? (isDark ? '#0C447C' : '#B5D4F4') : (isDark ? '#712B13' : '#F5C4B3');
+  const strokeCol = type === 'ogive' ? '#185FA5' : '#993C1D';
+
+  const N = 80;
+  ctx.beginPath();
+  ctx.moveTo(startX, midY);
+
+  if (type === 'ogive') {
+    const rho_og = (lPx * lPx + rPx * rPx) / (2 * rPx);
+    for (let i = 0; i <= N; i++) {
+      const x = (i / N) * lPx;
+      const y = Math.sqrt(Math.max(0, rho_og * rho_og - (lPx - x) * (lPx - x))) + rPx - rho_og;
+      ctx.lineTo(startX + x, midY - y);
+    }
+    ctx.lineTo(startX + lPx, midY + rPx);
+    for (let i = N; i >= 0; i--) {
+      const x = (i / N) * lPx;
+      const y = Math.sqrt(Math.max(0, rho_og * rho_og - (lPx - x) * (lPx - x))) + rPx - rho_og;
+      ctx.lineTo(startX + x, midY + y);
+    }
+  } else {
+    ctx.lineTo(startX + lPx, midY - rPx);
+    ctx.lineTo(startX + lPx, midY + rPx);
+    ctx.lineTo(startX, midY);
+  }
+
+  ctx.closePath();
+  ctx.fillStyle = fillCol;
+  ctx.fill();
+  ctx.strokeStyle = strokeCol;
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  ctx.fillStyle = isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.1)';
+  ctx.fillRect(startX + lPx, midY - rPx, 8, rPx * 2);
+
+  ctx.fillStyle = isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.4)';
+  ctx.font = '11px sans-serif';
+  ctx.fillText('L = ' + L_mm + ' mm', startX + 2, midY - rPx - 6);
+  ctx.fillText('R = ' + R_mm + ' mm', startX + lPx + 12, midY + 4);
+}
+
+let cdChartObj, velChartObj;
+
+function initCharts() {
+  const ctx1 = document.getElementById('cdChart').getContext('2d');
+  cdChartObj = new Chart(ctx1, {
+    type: 'line',
+    data: { labels: [], datasets: [
+      { label: 'Ogive', data: [], borderColor: '#378ADD', backgroundColor: 'rgba(55,138,221,0.07)', fill: true, pointRadius: 0, tension: 0.4 },
+      { label: 'Conical', data: [], borderColor: '#D85A30', backgroundColor: 'rgba(216,90,48,0.07)', fill: true, pointRadius: 0, tension: 0.4 },
+      { label: 'Current', data: [], borderColor: '#888780', borderDash: [4,3], pointRadius: 0, fill: false }
+    ]},
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { title: { display: true, text: 'Fineness ratio (L/D)', font: { size: 11 } } },
+        y: { title: { display: true, text: 'Cd', font: { size: 11 } }, min: 0 }
+      }
+    }
+  });
+
+  const ctx2 = document.getElementById('velChart').getContext('2d');
+  velChartObj = new Chart(ctx2, {
+    type: 'line',
+    data: { labels: [], datasets: [
+      { label: 'Ogive', data: [], borderColor: '#378ADD', backgroundColor: 'rgba(55,138,221,0.07)', fill: true, pointRadius: 0, tension: 0.3 },
+      { label: 'Conical', data: [], borderColor: '#D85A30', backgroundColor: 'rgba(216,90,48,0.07)', fill: true, pointRadius: 0, tension: 0.3 }
+    ]},
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { title: { display: true, text: 'Velocity (m/s)', font: { size: 11 } } },
+        y: { title: { display: true, text: 'Drag (N)', font: { size: 11 } }, min: 0 }
+      }
+    }
+  });
+}
+
+function update() {
+  const L = parseInt(document.getElementById('lenSlider').value);
+  const R = parseInt(document.getElementById('radSlider').value);
+  const v = parseInt(document.getElementById('velSlider').value);
+
+  document.getElementById('lenVal').textContent = L;
+  document.getElementById('radVal').textContent = R;
+  document.getElementById('velVal').textContent = v;
+
+  const fr = fineness(L, R);
+  const cdo = cdOgive(fr);
+  const cdc = cdConical(fr);
+  const Rm = R / 1000;
+  const do_ = drag(cdo, Rm, v);
+  const dc = drag(cdc, Rm, v);
+
+  document.getElementById('cdOgiveVal').textContent = cdo.toFixed(3);
+  document.getElementById('cdConicalVal').textContent = cdc.toFixed(3);
+  document.getElementById('dragOgiveVal').textContent = do_.toFixed(3);
+  document.getElementById('dragConicalVal').textContent = dc.toFixed(3);
+
+  const oCard = document.getElementById('cdOgive');
+  const cCard = document.getElementById('cdConical');
+  oCard.className = cdo < cdc ? 'mcard winner' : 'mcard';
+  cCard.className = cdc < cdo ? 'mcard winner' : 'mcard';
+
+  const frLabels = [], oVals = [], cVals = [], lineVals = [];
+  for (let f = 0.5; f <= 5.0; f += 0.1) {
+    frLabels.push(f.toFixed(1));
+    oVals.push(+cdOgive(f).toFixed(4));
+    cVals.push(+cdConical(f).toFixed(4));
+    lineVals.push(+fr.toFixed(4));
+  }
+  cdChartObj.data.labels = frLabels;
+  cdChartObj.data.datasets[0].data = oVals;
+  cdChartObj.data.datasets[1].data = cVals;
+  cdChartObj.data.datasets[2].data = frLabels.map(f => Math.abs(parseFloat(f) - fr) < 0.06 ? cdConical(fr) + 0.01 : null);
+  cdChartObj.update('none');
+
+  const vLabels = [], oDrags = [], cDrags = [];
+  for (let vel = 1; vel <= 80; vel += 1) {
+    vLabels.push(vel);
+    oDrags.push(+drag(cdo, Rm, vel).toFixed(4));
+    cDrags.push(+drag(cdc, Rm, vel).toFixed(4));
+  }
+  velChartObj.data.labels = vLabels;
+  velChartObj.data.datasets[0].data = oDrags;
+  velChartObj.data.datasets[1].data = cDrags;
+  velChartObj.update('none');
+
+  drawProfile('ogiveCanvas', 'ogive', L, R);
+  drawProfile('conicalCanvas', 'conical', L, R);
+}
+
+initCharts();
+update();
+
+document.getElementById('lenSlider').addEventListener('input', update);
+document.getElementById('radSlider').addEventListener('input', update);
+document.getElementById('velSlider').addEventListener('input', update);
+window.addEventListener('resize', update);
+</script>
